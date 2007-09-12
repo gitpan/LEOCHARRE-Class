@@ -1,4 +1,5 @@
 t/09_ClassAccessorMulti.t
+t/TestClassAccessorMulti.pm
 lib/LEOCHARRE/Class/Accessors.pm
 MANIFEST
 Makefile.PL

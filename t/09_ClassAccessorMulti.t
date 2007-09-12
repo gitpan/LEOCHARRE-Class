@@ -3,8 +3,9 @@ use lib './t';
 use lib './lib';
 use strict;
 use Data::Dumper 'Dumper';
-
+use LEOCHARRE::DEBUG;
 use TestClassAccessorMulti;
+$DEBUG = 1;
 
 my $o = new TestClassAccessorMulti;
 
@@ -42,3 +43,92 @@ my $data = $o->_instancedata;
 print STDERR " get object instance data: ".Dumper($data) ."\n\n";
 
 
+
+
+
+my $unam = 'errol_morris';
+
+ok( $o->users_add($unam), "added $unam");
+
+my $users_ = $o->users;
+
+ok( _array_contains( $users_,$unam), "array contains $unam");
+
+ok( $o->users_delete($unam), "deleted $unam");
+$users_ = $o->users;
+
+ok( ! _array_contains( $users_,$unam), "array does not contain $unam anymore");
+
+
+$o->users_clear;
+
+my $_cb = $o->users_count;
+
+$o->users_add('barbie','aussie','cobra','zelma');
+
+ok( ($_cb +4 )== $o->users_count );
+
+ok( $o->users_count == 4);
+
+$o->users_delete('barbie','cobra');
+ok( $o->users_count == 2);
+
+$o->users_clear;
+ok( ! $o->users_count );
+
+
+
+$o->users_add(qw(x y z a b c));
+
+my @ordered = @{$o->users};
+ok( "@ordered" eq 'x y z a b c', "ordered [@ordered]");
+
+my @sorted  = @{$o->users_sorted};
+ok( "@sorted"  eq 'a b c x y z', "sorted  [@sorted]");
+
+# ok.. now if we move things around a little.. should still work...
+
+$o->users_delete(qw(c x z));
+
+my @ordered2 = @{$o->users};
+ok( "@ordered2" eq 'y a b', "ordered [@ordered2]");
+
+my @sorted2  = @{$o->users_sorted};
+ok( "@sorted2"  eq 'a b y', "sorted  [@sorted2]");
+
+
+
+# try numbers
+$o->users_clear;
+$o->users_add(qw(2 3 4 9 8 7 6 5 1 0));
+
+ok($o->users_count == 10,'10 count, trying numbers..');
+
+ok( $o->users_exists(0),' does user "0" exist.. should.. ');
+ok( $o->users_delete(0),' user 0 deleted');
+ok( ! $o->users_exists(0),' does user "0" now does not exist ');
+
+
+
+# what if i make funny callse
+ok( ( eval { $o->users_delete(7) } ) , 'calling users_delete with arg');
+ok( ( eval { $o->users_add(7)    } ) , 'calling users_add with arg');
+ok( ( eval { $o->users_exists(7) } ) , 'calling users_exists with arg');
+
+ok( !( eval { $o->users_delete   } ) , 'calling users_delete with no arg fails');
+ok( !( eval { $o->users_exists   } ) , 'calling users_exists with no arg fails');
+ok( !( eval { $o->users_add      } ) , 'calling users_add with no arg fails');
+
+sub _array_contains {
+   my($arrayref,$element) = @_;
+   defined $arrayref and defined $element or die;
+   ref $arrayref eq 'ARRAY' or die('not array arg');
+   
+   for (@$arrayref){
+      debug("$_ ?= $element\n");
+      if ($_ eq $element){
+         return 1;
+      }
+   }
+   return 0;
+}
