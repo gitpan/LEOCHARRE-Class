@@ -2,7 +2,7 @@ package LEOCHARRE::Class::Accessors;
 use strict;
 use warnings;
 use Carp;
-our $VERSION = sprintf "%d.%02d", q$Revision: 1.6 $ =~ /(\d+)/g;
+our $VERSION = sprintf "%d.%02d", q$Revision: 1.10 $ =~ /(\d+)/g;
 
 
 
@@ -24,10 +24,17 @@ sub import {
    my $caller = caller;
    my %method_type = @_;
    
-   _make_new($caller);
    _make_accessor_data($caller);
 
    debug('started');
+
+   unless( defined $method_type{constructor} ){
+      $method_type{constructor} = 1; #'normal';
+   }
+   
+   if ( $method_type{constructor} ){
+      _make_new($caller);
+   }   
    
    if ( exists $method_type{multi} ){
       debug('multi present');
@@ -41,12 +48,22 @@ sub import {
       for(@{$method_type{single}}){
          _make_accessor_single( $caller, $_);
       }
-   }   
+   }
+
+   
+   
 }
 
 sub _make_new {
    my $class = shift;
+
+   # unless it is already defined!!!!
    no strict 'refs';
+
+   # this wont work unless another new is defined beforehand, not in the calling code
+   # but it should keep from redefining another predefined new
+   return if defined *{"$class\::new"}; # TODO is this ok??
+   
 
    *{"$class\::new"} = sub { 
       my ($class,$self) = @_;
@@ -54,6 +71,7 @@ sub _make_new {
       bless $self, $class;
       return $self;
    };
+   return;
 }
 
 
@@ -67,7 +85,8 @@ sub _make_accessor_single {
    *{"$class\::$name\_set"}   = _make_accessor_single_set($name);
    *{"$class\::__$name\_set"} = _make_accessor_single_set($name);   
    *{"$class\::$name\_get"}   = _make_accessor_single_get($name);
-   *{"$class\::$name"}        = _make_accessor_single_get($name); 
+   *{"$class\::$name"}        = _make_accessor_single_get($name);    
+   *{"$class\::$name\_clear"} = _make_accessor_single_clear($name); 
    return;
 }
 
@@ -261,7 +280,15 @@ sub _make_accessor_single_get {
    };
 }
 
-
+sub _make_accessor_single_clear {
+   my $attribute = shift;
+   
+   return sub {
+      my ($self) = @_;
+      defined $self->{_instancedata_}->{$attribute} or return 1;
+      $self->{_instancedata_}->{$attribute} = undef;
+   };
+}
 
 
 sub _make_accessor_data {
@@ -359,6 +386,8 @@ you are provided with
    jobs_delete              - take out value
    jobs_exists              - if value is present or not
 
+   jobs_clear               - clear the values added
+
 =head3 overriding
 
 you may want to write our own add, this is how:
@@ -385,6 +414,7 @@ you are provided with
    age_get     - get method  
    age_set     - set method
    __age_set   - if you want to redefine age_set
+   age_clear   - undef the value
 
 =head3 Example Overriding Single
 
@@ -399,6 +429,13 @@ Maybe you want to verify the data..
       $self->__age_set($val);
       return 1;
    }
+
+=head1 NO new() 
+
+use LEOCHARRE::Class::Accessors single => [qw(abs_tmp api api_name)], constructor => 0;
+
+Expecially useful for CGI::Application
+
 
 =head1 AUTHOR
 
