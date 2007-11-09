@@ -1,12 +1,15 @@
 package LEOCHARRE::Class::Accessors;
+use LEOCHARRE::Class::Accessors::Base;
 use strict;
 use warnings;
 use Carp;
-our $VERSION = sprintf "%d.%02d", q$Revision: 1.10 $ =~ /(\d+)/g;
+our $VERSION = sprintf "%d.%02d", q$Revision: 1.12 $ =~ /(\d+)/g;
 
 
+$LEOCHARRE::Class::Accessors::DEBUG=0;
+sub DEBUG : lvalue { $LEOCHARRE::Class::Accessors::DEBUG }
 
-sub DEBUG { return 0; }
+
 sub debug {
    DEBUG or return 1;
    my $msg= shift;
@@ -24,8 +27,6 @@ sub import {
    my $caller = caller;
    my %method_type = @_;
    
-   _make_accessor_data($caller);
-
    debug('started');
 
    unless( defined $method_type{constructor} ){
@@ -36,273 +37,25 @@ sub import {
       _make_new($caller);
    }   
    
+   
    if ( exists $method_type{multi} ){
-      debug('multi present');
-      for(@{$method_type{multi}}){
-         _make_accessor_multi($caller, $_ );
-      }
+      debug('multi present');      
+      _make_accessor_multi( $caller, @{$method_type{multi}} );      
    }
+   
 
    if ( exists $method_type{single} ){
-      debug('single present');
-      for(@{$method_type{single}}){
-         _make_accessor_single( $caller, $_);
-      }
-   }
+      debug('single present');      
+      _make_accessor_single( $caller, @{$method_type{single}} );  
+   }  
 
+   if ( exists $method_type{dual} ){
+      debug('dual present');      
+      _make_accessor_dual( $caller, @{$method_type{dual}} );  
+   }  
    
-   
 }
 
-sub _make_new {
-   my $class = shift;
-
-   # unless it is already defined!!!!
-   no strict 'refs';
-
-   # this wont work unless another new is defined beforehand, not in the calling code
-   # but it should keep from redefining another predefined new
-   return if defined *{"$class\::new"}; # TODO is this ok??
-   
-
-   *{"$class\::new"} = sub { 
-      my ($class,$self) = @_;
-      $self||={};
-      bless $self, $class;
-      return $self;
-   };
-   return;
-}
-
-
-
-sub _make_accessor_single {
-   my ($class, $name) = @_;
-
-   no strict 'refs';
-   debug("$class\::$name");
-   
-   *{"$class\::$name\_set"}   = _make_accessor_single_set($name);
-   *{"$class\::__$name\_set"} = _make_accessor_single_set($name);   
-   *{"$class\::$name\_get"}   = _make_accessor_single_get($name);
-   *{"$class\::$name"}        = _make_accessor_single_get($name);    
-   *{"$class\::$name\_clear"} = _make_accessor_single_clear($name); 
-   return;
-}
-
-
-
-
-sub _make_accessor_multi {
-   my ($class, $name) = @_;
-
-   no strict 'refs';      
-   debug("$class\::$name");      
-      
-   *{"$class\::$name\_add"}               = _make_accessor_add($name); # i need a second one in caase iu want to override one
-   *{"$class\::__$name\_add"}             = _make_accessor_add($name); # i need a second one in caase iu want to override one
-   
-   *{"$class\::$name\_count"}             = _make_accessor_count($name);
-   *{"$class\::$name\_delete"}            = _make_accessor_delete($name);
-   *{"$class\::$name\_hashref"}           = _make_accessor_hashref($name);
-   *{"$class\::$name\_arrayref"}          = _make_accessor_arrayref($name);
-   *{"$class\::$name\_arrayref_sorted"}   = _make_accessor_arrayref_sorted($name);
-   *{"$class\::$name\_sorted"}            = _make_accessor_arrayref_sorted($name);
-   
-   *{"$class\::$name\_clear"}             = _make_accessor_clear($name);
-   *{"$class\::$name\_exists"}            = _make_accessor_exists($name);
-
-   
-   # simple array ref is the basic name, for example 'users' and users_arrayref'
-   # should do the same thing
-   *{"$class\::$name"}            = _make_accessor_arrayref($name); 
-   return;
-}
-
-
-
-
-sub _make_accessor_add {
-   my $attribute = shift;
-   
-   return sub {
-      my $self = shift;
-      my $arg = shift;
-      unless( defined $arg ){
-         confess("$attribute\_add() missing argument");
-      }
-
-      while( defined $arg ){    
-         
-         # if it exists, increase count .. ok.. but dont push into sorted list
-         if ( ! exists $self->{_instancedata_}->{$attribute}->{$arg} ){
-            push @{$self->{_instancedata_}->{$attribute.'_ordered'}}, $arg;
-         }         
-         $self->{_instancedata_}->{$attribute}->{$arg}++;
-         
-         $arg = shift;
-      } 
-      return 1;  
-   };   
-}
-
-sub _make_accessor_hashref {
-   my $attribute = shift;
-
-   return sub {
-      my $self = shift;
-      $self->{_instancedata_}->{$attribute} ||= {};
-      return $self->{_instancedata_}->{$attribute};
-   };
-}
-
-sub _make_accessor_arrayref {
-   my $attribute = shift;
-
-   return sub {
-      my $self = shift;
-      $self->{_instancedata_}->{$attribute.'_ordered'} ||=[];      
-      return $self->{_instancedata_}->{$attribute.'_ordered'}
-   };
-}
-
-sub _make_accessor_arrayref_sorted {
-   my $attribute = shift;
-
-   return sub {
-      my $self = shift;
-      $self->{_instancedata_}->{$attribute.'_ordered'} ||=[];
-      my @a = sort @{ $self->{_instancedata_}->{$attribute.'_ordered'} };
-      return \@a;
-   };
-
-}
-
-
-sub _make_accessor_delete {
-   my $attribute = shift;
-   
-   return sub {
-      my $self = shift;
-      my $arg = shift;
-      unless( defined $arg ){
-         confess("$attribute\_delete() missing argument");
-      }
-
-      while( defined $arg ){
-         if ( exists $self->{_instancedata_}->{$attribute}->{$arg} ){
-
-            # take out from ordered too!!!
-            my @newlist=();
-            ORDERED: for (@{$self->{_instancedata_}->{$attribute.'_ordered'}}){
-               #TODO might not work! TEST THIS!
-               next ORDERED if $_ eq $arg;
-               push @newlist, $_;               
-            }
-            $self->{_instancedata_}->{$attribute.'_ordered'} = \@newlist;
-
-            # take out of hash
-            delete $self->{_instancedata_}->{$attribute}->{$arg};            
-         }
-         $arg = shift;
-      }   
-      return 1;
-   };
-}
-
-sub _make_accessor_clear {
-   my $attribute = shift;
-
-   return sub {
-      my $self = shift;
-      $self->{_instancedata_}->{$attribute} = {};
-      $self->{_instancedata_}->{$attribute.'_ordered'} = [];      
-      return 1;
-   };
-}
-
-sub _make_accessor_count {
-   my $attribute = shift;
-   
-   return sub {
-      my $self = shift;
-      exists $self->{_instancedata_}->{$attribute} or return 0;
-      keys %{$self->{_instancedata_}->{$attribute}} or return 0;
-      my @k = keys %{$self->{_instancedata_}->{$attribute}};
-      return scalar @k;
-   };
-}
-
-sub _make_accessor_exists {
-   my $attribute = shift;
-   
-   return sub {
-      my $self = shift;
-      my $arg = shift; 
-      unless( defined $arg ){
-         confess("$attribute\_exists() missing argument");
-      }
-
-
-
-      
-      exists $self->{_instancedata_}->{$attribute}->{$arg} or return 0;
-      return 1;
-   };
-}
-
-
-
-# singles
-
-
-
-
-sub _make_accessor_single_set {
-   my $attribute = shift;
-
-   return sub {
-      my $self = shift;
-      my $arg = shift;
-      defined $arg or die('missing arg');
-      $self->{_instancedata_}->{$attribute} =$arg;
-      return 1;
-   };
-}
-
-sub _make_accessor_single_get {
-   my $attribute = shift;
-   
-   return sub {
-      my ($self) = @_;
-      defined $self->{_instancedata_}->{$attribute} or return;
-      return $self->{_instancedata_}->{$attribute};
-   };
-}
-
-sub _make_accessor_single_clear {
-   my $attribute = shift;
-   
-   return sub {
-      my ($self) = @_;
-      defined $self->{_instancedata_}->{$attribute} or return 1;
-      $self->{_instancedata_}->{$attribute} = undef;
-   };
-}
-
-
-sub _make_accessor_data {
-   my $class = shift;
-   no strict 'refs';
-   
-   *{"$class\::_instancedata"} = sub {
-      my $self = shift;
-      
-      $self->{_instancedata_} ||={};
-      return $self->{_instancedata_};   
-   };
-
-}
 
 
 
@@ -319,7 +72,8 @@ LEOCHARRE::Class::Accessors - particular setget methods
    package Super::Hero;
    use LEOCHARRE::Class::Accessors
       multi => [qw(powers)],
-      single => [qw(name)];
+      single => [qw(name)],
+      dual  => [qw(step)],
 
    1;
 
@@ -334,6 +88,9 @@ In script.pl:
    $sm->name_set('Superman');      
    $sm->powers_add('flying','x ray vision');
    
+   # using the traditional dual setget method type:
+   $sm->step or $sm->step = 1;
+
 
    # get methods
    
@@ -359,6 +116,7 @@ In script.pl:
 
 These are my personal set get methods.
 There are two types of acessors, multi, and single.
+This is an interface to LEOCHARRE::Class::Accessors::Base
 
 =head2 multi accesors
 
@@ -435,6 +193,14 @@ Maybe you want to verify the data..
 use LEOCHARRE::Class::Accessors single => [qw(abs_tmp api api_name)], constructor => 0;
 
 Expecially useful for CGI::Application
+
+=head1 SEE ALSO
+
+LEOCHARRE::Class:Accessors::Base
+
+=head1 DEBUG
+
+   $LEOCHARRE::Class::Accessors::DEBUG = 1;
 
 
 =head1 AUTHOR
