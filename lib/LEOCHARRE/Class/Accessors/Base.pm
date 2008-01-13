@@ -1,5 +1,6 @@
 package LEOCHARRE::Class::Accessors::Base;
 use strict;
+use Carp;
 use warnings;
 use LEOCHARRE::DEBUG;
 use vars qw(@ISA @EXPORT $VERSION);
@@ -11,7 +12,7 @@ _make_accessor_multi
 _make_accessor_dual
 _make_new
 );
-$VERSION = sprintf "%d.%02d", q$Revision: 1.2 $ =~ /(\d+)/g;
+$VERSION = sprintf "%d.%02d", q$Revision: 1.3 $ =~ /(\d+)/g;
 
 #$LEOCHARRE::Class::Accessors::Base::DEBUG=0;
 
