@@ -1,5 +1,6 @@
 t/09_ClassAccessorMulti.t
 t/TestClassAccessorMulti.pm
+lib/LEOCHARRE/Class.pm
 lib/LEOCHARRE/Class/Accessors.pm
 lib/LEOCHARRE/Class/Accessors/Base.pm
 t/11_TestFile.t

@@ -3,9 +3,8 @@ use lib './t';
 use lib './lib';
 use strict;
 use Data::Dumper 'Dumper';
-use LEOCHARRE::DEBUG;
 use TestClassAccessorMulti;
-$DEBUG = 1;
+my $DEBUG = 1;
 
 my $o = new TestClassAccessorMulti;
 
@@ -135,7 +134,7 @@ sub _array_contains {
    ref $arrayref eq 'ARRAY' or die('not array arg');
    
    for (@$arrayref){
-      debug("$_ ?= $element\n");
+      print STDERR "$_ ?= $element\n" if $DEBUG;
       if ($_ eq $element){
          return 1;
       }

@@ -2,7 +2,6 @@ package LEOCHARRE::Class::Accessors::Base;
 use strict;
 use Carp;
 use warnings;
-use LEOCHARRE::DEBUG;
 use vars qw(@ISA @EXPORT $VERSION);
 use Exporter;
 @ISA = qw/ Exporter /;
@@ -12,13 +11,11 @@ _make_accessor_multi
 _make_accessor_dual
 _make_new
 );
-$VERSION = sprintf "%d.%02d", q$Revision: 1.3 $ =~ /(\d+)/g;
-
-#$LEOCHARRE::Class::Accessors::Base::DEBUG=0;
+$VERSION = sprintf "%d.%02d", q$Revision: 1.4 $ =~ /(\d+)/g;
 
 #no warnings 'redefine';
-
-#sub DEBUG : lvalue { $LEOCHARRE::Class::Accessors::Base::DEBUG }
+my $DEBUG = 0;
+sub DEBUG : lvalue  { $DEBUG }
 
 sub _make_new {
    my $class = shift;
@@ -456,6 +453,8 @@ sub _make_accessor_data {
 
 
 1;
+
+__END__
 
 =pod
 
